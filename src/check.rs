@@ -291,12 +291,15 @@ mod tests {
         let checker = default_checker();
         // max_order_size = 100; quantity = 101 should fail.
         let order = make_order(Side::Bid, 1000, 101);
-        match checker.check_order(&order, None) {
-            Err(RiskReject::OrderSizeTooLarge { size, limit }) => {
-                assert_eq!(size, 101);
-                assert_eq!(limit, 100);
-            }
-            other => panic!("expected OrderSizeTooLarge, got {:?}", other),
+        let result = checker.check_order(&order, None);
+        assert!(
+            matches!(result, Err(RiskReject::OrderSizeTooLarge { .. })),
+            "expected OrderSizeTooLarge, got {:?}",
+            result
+        );
+        if let Err(RiskReject::OrderSizeTooLarge { size, limit }) = result {
+            assert_eq!(size, 101);
+            assert_eq!(limit, 100);
         }
     }
 
@@ -310,13 +313,16 @@ mod tests {
         // Current long = 990, order adds 100 → net 1090 > max 1000.
         let position = make_position(990);
         let order = make_order(Side::Bid, 1000, 100);
-        match checker.check_order(&order, Some(&position)) {
-            Err(RiskReject::PositionLimitBreached { current, after, limit }) => {
-                assert_eq!(current, 990);
-                assert_eq!(after, 1090);
-                assert_eq!(limit, 1000);
-            }
-            other => panic!("expected PositionLimitBreached, got {:?}", other),
+        let result = checker.check_order(&order, Some(&position));
+        assert!(
+            matches!(result, Err(RiskReject::PositionLimitBreached { .. })),
+            "expected PositionLimitBreached, got {:?}",
+            result
+        );
+        if let Err(RiskReject::PositionLimitBreached { current, after, limit }) = result {
+            assert_eq!(current, 990);
+            assert_eq!(after, 1090);
+            assert_eq!(limit, 1000);
         }
     }
 
@@ -326,13 +332,16 @@ mod tests {
         // Current short = -990, order sells 100 → net -1090; abs > 1000.
         let position = make_position(-990);
         let order = make_order(Side::Ask, 1000, 100);
-        match checker.check_order(&order, Some(&position)) {
-            Err(RiskReject::PositionLimitBreached { current, after, limit }) => {
-                assert_eq!(current, -990);
-                assert_eq!(after, -1090);
-                assert_eq!(limit, 1000);
-            }
-            other => panic!("expected PositionLimitBreached, got {:?}", other),
+        let result = checker.check_order(&order, Some(&position));
+        assert!(
+            matches!(result, Err(RiskReject::PositionLimitBreached { .. })),
+            "expected PositionLimitBreached, got {:?}",
+            result
+        );
+        if let Err(RiskReject::PositionLimitBreached { current, after, limit }) = result {
+            assert_eq!(current, -990);
+            assert_eq!(after, -1090);
+            assert_eq!(limit, 1000);
         }
     }
 
@@ -345,12 +354,15 @@ mod tests {
         let checker = default_checker();
         // price 10_000_000 * quantity 100 = 1_000_000_000 > max_notional 100_000_000.
         let order = make_order(Side::Bid, 10_000_000, 100);
-        match checker.check_order(&order, None) {
-            Err(RiskReject::NotionalExceeded { notional, limit }) => {
-                assert_eq!(notional, 1_000_000_000);
-                assert_eq!(limit, 100_000_000);
-            }
-            other => panic!("expected NotionalExceeded, got {:?}", other),
+        let result = checker.check_order(&order, None);
+        assert!(
+            matches!(result, Err(RiskReject::NotionalExceeded { .. })),
+            "expected NotionalExceeded, got {:?}",
+            result
+        );
+        if let Err(RiskReject::NotionalExceeded { notional, limit }) = result {
+            assert_eq!(notional, 1_000_000_000);
+            assert_eq!(limit, 100_000_000);
         }
     }
 
@@ -368,12 +380,15 @@ mod tests {
         checker.increment_open_orders();
 
         let order = make_order(Side::Bid, 1000, 1);
-        match checker.check_order(&order, None) {
-            Err(RiskReject::MaxOpenOrdersReached { count, limit }) => {
-                assert_eq!(count, 2);
-                assert_eq!(limit, 2);
-            }
-            other => panic!("expected MaxOpenOrdersReached, got {:?}", other),
+        let result = checker.check_order(&order, None);
+        assert!(
+            matches!(result, Err(RiskReject::MaxOpenOrdersReached { .. })),
+            "expected MaxOpenOrdersReached, got {:?}",
+            result
+        );
+        if let Err(RiskReject::MaxOpenOrdersReached { count, limit }) = result {
+            assert_eq!(count, 2);
+            assert_eq!(limit, 2);
         }
     }
 
@@ -390,12 +405,15 @@ mod tests {
         checker.update_daily_pnl(-1000);
 
         let order = make_order(Side::Bid, 1000, 1);
-        match checker.check_order(&order, None) {
-            Err(RiskReject::DailyLossLimitHit { loss, limit }) => {
-                assert_eq!(loss, -1000);
-                assert_eq!(limit, -1000);
-            }
-            other => panic!("expected DailyLossLimitHit, got {:?}", other),
+        let result = checker.check_order(&order, None);
+        assert!(
+            matches!(result, Err(RiskReject::DailyLossLimitHit { .. })),
+            "expected DailyLossLimitHit, got {:?}",
+            result
+        );
+        if let Err(RiskReject::DailyLossLimitHit { loss, limit }) = result {
+            assert_eq!(loss, -1000);
+            assert_eq!(limit, -1000);
         }
     }
 
