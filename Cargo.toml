@@ -1,0 +1,32 @@
+[package]
+name = "alice-risk"
+version = "0.1.0"
+edition = "2021"
+authors = ["Moroya Sakamoto"]
+description = "Pre-trade risk checks, margin calculation, and circuit breakers"
+license = "AGPL-3.0-only"
+publish = false
+
+[lib]
+name = "alice_risk"
+crate-type = ["rlib"]
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]
+alice-ledger = { path = "../ALICE-Ledger" }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.bench]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+debug = false
