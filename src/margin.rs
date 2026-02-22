@@ -32,7 +32,7 @@ pub struct MarginParams {
 impl Default for MarginParams {
     fn default() -> Self {
         Self {
-            initial_margin_bps: 1000,  // 10%
+            initial_margin_bps: 1000,    // 10%
             maintenance_margin_bps: 500, // 5%
         }
     }
@@ -113,8 +113,8 @@ impl MarginCalculator {
         // margin_per_lot = maint_bps / 10000 (applied as integer division)
         // distance = equity / (quantity * margin_per_lot)
         //          = equity * 10000 / (quantity * maint_bps)
-        let denominator = (quantity as i128)
-            .saturating_mul(self.params.maintenance_margin_bps as i128);
+        let denominator =
+            (quantity as i128).saturating_mul(self.params.maintenance_margin_bps as i128);
         if denominator == 0 {
             return entry_price;
         }
@@ -235,5 +235,185 @@ mod tests {
         // Should return entry_price unchanged.
         let liq = calc.liquidation_price(10_000, 0, 5_000, true);
         assert_eq!(liq, 10_000);
+    }
+
+    // -------------------------------------------------------------------
+    // MarginParams tests
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_margin_params_default() {
+        let params = MarginParams::default();
+        assert_eq!(params.initial_margin_bps, 1000);
+        assert_eq!(params.maintenance_margin_bps, 500);
+    }
+
+    #[test]
+    fn test_margin_params_custom() {
+        let params = MarginParams {
+            initial_margin_bps: 2000,
+            maintenance_margin_bps: 1000,
+        };
+        assert_eq!(params.initial_margin_bps, 2000);
+        assert_eq!(params.maintenance_margin_bps, 1000);
+    }
+
+    #[test]
+    fn test_margin_params_clone_eq() {
+        let a = MarginParams::default();
+        let b = a.clone();
+        assert_eq!(a, b);
+    }
+
+    // -------------------------------------------------------------------
+    // Initial margin edge cases
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_initial_margin_large_values() {
+        let calc = default_calc();
+        // price=1_000_000_000, qty=1_000_000, bps=1000
+        // = 1e9 * 1e6 * 1000 / 10000 = 1e14
+        let result = calc.initial_margin(1_000_000_000, 1_000_000);
+        assert_eq!(result, 100_000_000_000_000);
+    }
+
+    #[test]
+    fn test_initial_margin_negative_price() {
+        let calc = default_calc();
+        // Negative price (spreads/differences can be negative).
+        // -10_000 * 10 * 1000 / 10000 = -10_000
+        let result = calc.initial_margin(-10_000, 10);
+        assert_eq!(result, -10_000);
+    }
+
+    #[test]
+    fn test_initial_margin_unit_values() {
+        let calc = default_calc();
+        // price=1, qty=1, bps=1000 → 1*1*1000/10000 = 0 (integer division)
+        assert_eq!(calc.initial_margin(1, 1), 0);
+    }
+
+    #[test]
+    fn test_initial_margin_bps_10000_means_100_percent() {
+        let calc = MarginCalculator::new(MarginParams {
+            initial_margin_bps: 10_000, // 100%
+            maintenance_margin_bps: 500,
+        });
+        // 100% of notional: price * qty
+        assert_eq!(calc.initial_margin(5000, 10), 50_000);
+    }
+
+    // -------------------------------------------------------------------
+    // Maintenance margin edge cases
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_maintenance_margin_zero_bps() {
+        let calc = MarginCalculator::new(MarginParams {
+            initial_margin_bps: 1000,
+            maintenance_margin_bps: 0,
+        });
+        // 0 bps means zero maintenance margin.
+        assert_eq!(calc.maintenance_margin(50_000, 100), 0);
+    }
+
+    #[test]
+    fn test_maintenance_margin_large_values() {
+        let calc = default_calc();
+        // price=1_000_000_000, qty=1_000_000, bps=500
+        // = 1e9 * 1e6 * 500 / 10000 = 5e13
+        assert_eq!(
+            calc.maintenance_margin(1_000_000_000, 1_000_000),
+            50_000_000_000_000
+        );
+    }
+
+    // -------------------------------------------------------------------
+    // Margin call edge cases
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_margin_call_negative_equity() {
+        let calc = default_calc();
+        // Negative equity should always trigger margin call.
+        assert!(calc.is_margin_call(10_000, 10, -1));
+    }
+
+    #[test]
+    fn test_margin_call_zero_position() {
+        let calc = default_calc();
+        // Zero position → maintenance margin = 0 → equity 0 is not < 0.
+        assert!(!calc.is_margin_call(10_000, 0, 0));
+    }
+
+    #[test]
+    fn test_margin_call_zero_price() {
+        let calc = default_calc();
+        // Zero price → maintenance margin = 0 → equity 0 is not < 0.
+        assert!(!calc.is_margin_call(0, 100, 0));
+    }
+
+    // -------------------------------------------------------------------
+    // Liquidation price edge cases
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_liquidation_price_zero_equity_long() {
+        let calc = default_calc();
+        // Zero equity → distance = 0 → liq_price = entry_price.
+        let liq = calc.liquidation_price(10_000, 10, 0, true);
+        assert_eq!(liq, 10_000);
+    }
+
+    #[test]
+    fn test_liquidation_price_zero_equity_short() {
+        let calc = default_calc();
+        let liq = calc.liquidation_price(10_000, 10, 0, false);
+        assert_eq!(liq, 10_000);
+    }
+
+    #[test]
+    fn test_liquidation_price_negative_equity_long() {
+        let calc = default_calc();
+        // Negative equity → negative distance → liq_price is ABOVE entry for long.
+        // distance = -5000 * 10000 / (10 * 500) = -50_000_000 / 5000 = -10_000
+        // liq = 10_000 - (-10_000) = 20_000
+        let liq = calc.liquidation_price(10_000, 10, -5_000, true);
+        assert_eq!(liq, 20_000);
+    }
+
+    #[test]
+    fn test_liquidation_price_negative_equity_short() {
+        let calc = default_calc();
+        // distance = -10_000; liq = 10_000 + (-10_000) = 0
+        let liq = calc.liquidation_price(10_000, 10, -5_000, false);
+        assert_eq!(liq, 0);
+    }
+
+    #[test]
+    fn test_liquidation_price_zero_maint_bps() {
+        // maintenance_margin_bps = 0 → denominator = qty * 0 = 0 → return entry_price.
+        let calc = MarginCalculator::new(MarginParams {
+            initial_margin_bps: 1000,
+            maintenance_margin_bps: 0,
+        });
+        let liq = calc.liquidation_price(10_000, 10, 5_000, true);
+        assert_eq!(liq, 10_000);
+    }
+
+    #[test]
+    fn test_liquidation_price_symmetry() {
+        let calc = default_calc();
+        // For same equity, the distance from entry should be identical for long/short,
+        // but in opposite directions.
+        let entry = 50_000;
+        let qty = 20;
+        let equity = 10_000;
+        let liq_long = calc.liquidation_price(entry, qty, equity, true);
+        let liq_short = calc.liquidation_price(entry, qty, equity, false);
+        // liq_long = entry - distance, liq_short = entry + distance
+        // distance should be equal in magnitude:
+        assert_eq!(entry - liq_long, liq_short - entry);
     }
 }

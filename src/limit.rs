@@ -69,4 +69,74 @@ mod tests {
         assert_eq!(limits.max_open_orders, 20);
         assert_eq!(limits.max_daily_loss, -10_000);
     }
+
+    #[test]
+    fn test_clone_preserves_all_fields() {
+        let original = RiskLimits {
+            max_position: 42,
+            max_order_size: 7,
+            max_notional: 999_999,
+            max_open_orders: 3,
+            max_daily_loss: -77,
+        };
+        let cloned = original.clone();
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn test_equality_same_values() {
+        let a = RiskLimits::default();
+        let b = RiskLimits::default();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_inequality_different_position() {
+        let a = RiskLimits::default();
+        let b = RiskLimits {
+            max_position: 999,
+            ..RiskLimits::default()
+        };
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_zero_limits() {
+        let limits = RiskLimits {
+            max_position: 0,
+            max_order_size: 0,
+            max_notional: 0,
+            max_open_orders: 0,
+            max_daily_loss: 0,
+        };
+        assert_eq!(limits.max_position, 0);
+        assert_eq!(limits.max_order_size, 0);
+        assert_eq!(limits.max_notional, 0);
+        assert_eq!(limits.max_open_orders, 0);
+        assert_eq!(limits.max_daily_loss, 0);
+    }
+
+    #[test]
+    fn test_extreme_limits() {
+        let limits = RiskLimits {
+            max_position: u64::MAX,
+            max_order_size: u64::MAX,
+            max_notional: i64::MAX,
+            max_open_orders: u32::MAX,
+            max_daily_loss: i64::MIN,
+        };
+        assert_eq!(limits.max_position, u64::MAX);
+        assert_eq!(limits.max_order_size, u64::MAX);
+        assert_eq!(limits.max_notional, i64::MAX);
+        assert_eq!(limits.max_open_orders, u32::MAX);
+        assert_eq!(limits.max_daily_loss, i64::MIN);
+    }
+
+    #[test]
+    fn test_debug_format() {
+        let limits = RiskLimits::default();
+        let debug_str = format!("{:?}", limits);
+        assert!(debug_str.contains("RiskLimits"));
+        assert!(debug_str.contains("1000"));
+    }
 }

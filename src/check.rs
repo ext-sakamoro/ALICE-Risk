@@ -174,7 +174,7 @@ impl PreTradeChecker {
     ///
     /// `pnl` is added to the accumulated total; a negative value represents
     /// a loss. When the total reaches `max_daily_loss`, subsequent orders
-    /// will be rejected by [`check_order`].
+    /// will be rejected by [`Self::check_order`].
     #[inline(always)]
     pub fn update_daily_pnl(&mut self, pnl: i64) {
         self.daily_pnl = self.daily_pnl.saturating_add(pnl);
@@ -193,7 +193,7 @@ impl PreTradeChecker {
     }
 
     /// Trip the circuit breaker, blocking all further order submissions until
-    /// [`reset_circuit_breaker`] is called.
+    /// [`Self::reset_circuit_breaker`] is called.
     #[inline(always)]
     pub fn trip_circuit_breaker(&mut self) {
         self.circuit_breaker_tripped = true;
@@ -208,7 +208,7 @@ impl PreTradeChecker {
     /// Perform end-of-day reset: clears daily P&L and open order count.
     ///
     /// The circuit breaker state is intentionally preserved across daily
-    /// resets; it must be explicitly cleared with [`reset_circuit_breaker`].
+    /// resets; it must be explicitly cleared with [`Self::reset_circuit_breaker`].
     #[inline(always)]
     pub fn reset_daily(&mut self) {
         self.daily_pnl = 0;
@@ -319,7 +319,12 @@ mod tests {
             "expected PositionLimitBreached, got {:?}",
             result
         );
-        if let Err(RiskReject::PositionLimitBreached { current, after, limit }) = result {
+        if let Err(RiskReject::PositionLimitBreached {
+            current,
+            after,
+            limit,
+        }) = result
+        {
             assert_eq!(current, 990);
             assert_eq!(after, 1090);
             assert_eq!(limit, 1000);
@@ -338,7 +343,12 @@ mod tests {
             "expected PositionLimitBreached, got {:?}",
             result
         );
-        if let Err(RiskReject::PositionLimitBreached { current, after, limit }) = result {
+        if let Err(RiskReject::PositionLimitBreached {
+            current,
+            after,
+            limit,
+        }) = result
+        {
             assert_eq!(current, -990);
             assert_eq!(after, -1090);
             assert_eq!(limit, 1000);
@@ -467,5 +477,253 @@ mod tests {
             checker.check_order(&order, None),
             Err(RiskReject::CircuitBreakerTripped)
         );
+    }
+
+    // -------------------------------------------------------------------
+    // Order size boundary
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_order_size_at_exact_limit_passes() {
+        let checker = default_checker();
+        // max_order_size = 100; exactly 100 should pass (<= not <).
+        let order = make_order(Side::Bid, 1000, 100);
+        assert!(checker.check_order(&order, None).is_ok());
+    }
+
+    // -------------------------------------------------------------------
+    // Position limit boundary
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_position_at_exact_limit_passes() {
+        let checker = default_checker();
+        // Current = 900, bid +100 → net 1000 = max_position: should pass.
+        let position = make_position(900);
+        let order = make_order(Side::Bid, 1000, 100);
+        assert!(checker.check_order(&order, Some(&position)).is_ok());
+    }
+
+    #[test]
+    fn test_position_one_over_limit_rejects() {
+        let checker = default_checker();
+        // Current = 901, bid +100 → net 1001 > 1000: reject.
+        let position = make_position(901);
+        let order = make_order(Side::Bid, 1000, 100);
+        let result = checker.check_order(&order, Some(&position));
+        assert!(matches!(
+            result,
+            Err(RiskReject::PositionLimitBreached { .. })
+        ));
+    }
+
+    #[test]
+    fn test_bid_reduces_short_position_within_limit() {
+        let checker = default_checker();
+        // Current short = -950, bid +100 → net = -850; abs = 850 < 1000: pass.
+        let position = make_position(-950);
+        let order = make_order(Side::Bid, 1000, 100);
+        assert!(checker.check_order(&order, Some(&position)).is_ok());
+    }
+
+    #[test]
+    fn test_ask_reduces_long_position_within_limit() {
+        let checker = default_checker();
+        // Current long = 950, ask -50 → net = 900; abs = 900 < 1000: pass.
+        let position = make_position(950);
+        let order = make_order(Side::Ask, 1000, 50);
+        assert!(checker.check_order(&order, Some(&position)).is_ok());
+    }
+
+    // -------------------------------------------------------------------
+    // Notional boundary
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_notional_at_exact_limit_passes() {
+        let checker = default_checker();
+        // max_notional = 100_000_000; price=1_000_000, qty=100 → notional = 100_000_000: pass.
+        let order = make_order(Side::Bid, 1_000_000, 100);
+        assert!(checker.check_order(&order, None).is_ok());
+    }
+
+    #[test]
+    fn test_notional_one_over_limit_rejects() {
+        let checker = default_checker();
+        // notional = 100_000_001 > 100_000_000: reject.
+        let order = make_order(Side::Bid, 100_000_001, 1);
+        let result = checker.check_order(&order, None);
+        assert!(matches!(result, Err(RiskReject::NotionalExceeded { .. })));
+    }
+
+    // -------------------------------------------------------------------
+    // Open orders boundary
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_open_orders_one_below_limit_passes() {
+        let mut checker = PreTradeChecker::new(RiskLimits {
+            max_open_orders: 3,
+            ..RiskLimits::default()
+        });
+        checker.increment_open_orders();
+        checker.increment_open_orders();
+        // count=2 < limit=3: pass.
+        let order = make_order(Side::Bid, 1000, 1);
+        assert!(checker.check_order(&order, None).is_ok());
+    }
+
+    // -------------------------------------------------------------------
+    // Daily loss boundary
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_daily_loss_just_above_limit_passes() {
+        let mut checker = PreTradeChecker::new(RiskLimits {
+            max_daily_loss: -1000,
+            ..RiskLimits::default()
+        });
+        checker.update_daily_pnl(-999);
+        // pnl=-999 > max_daily_loss=-1000: pass.
+        let order = make_order(Side::Bid, 1000, 1);
+        assert!(checker.check_order(&order, None).is_ok());
+    }
+
+    #[test]
+    fn test_daily_loss_below_limit_rejects() {
+        let mut checker = PreTradeChecker::new(RiskLimits {
+            max_daily_loss: -1000,
+            ..RiskLimits::default()
+        });
+        checker.update_daily_pnl(-1001);
+        // pnl=-1001 <= -1000: reject.
+        let order = make_order(Side::Bid, 1000, 1);
+        assert!(matches!(
+            checker.check_order(&order, None),
+            Err(RiskReject::DailyLossLimitHit { .. })
+        ));
+    }
+
+    // -------------------------------------------------------------------
+    // State management
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_increment_decrement_open_orders() {
+        let mut checker = default_checker();
+        assert_eq!(checker.open_order_count(), 0);
+        checker.increment_open_orders();
+        checker.increment_open_orders();
+        assert_eq!(checker.open_order_count(), 2);
+        checker.decrement_open_orders();
+        assert_eq!(checker.open_order_count(), 1);
+    }
+
+    #[test]
+    fn test_decrement_open_orders_saturates_at_zero() {
+        let mut checker = default_checker();
+        checker.decrement_open_orders();
+        // Should saturate to 0, not underflow.
+        assert_eq!(checker.open_order_count(), 0);
+    }
+
+    #[test]
+    fn test_update_daily_pnl_accumulates() {
+        let mut checker = default_checker();
+        checker.update_daily_pnl(100);
+        checker.update_daily_pnl(-50);
+        checker.update_daily_pnl(25);
+        assert_eq!(checker.daily_pnl(), 75);
+    }
+
+    #[test]
+    fn test_is_circuit_breaker_tripped_accessor() {
+        let mut checker = default_checker();
+        assert!(!checker.is_circuit_breaker_tripped());
+        checker.trip_circuit_breaker();
+        assert!(checker.is_circuit_breaker_tripped());
+        checker.reset_circuit_breaker();
+        assert!(!checker.is_circuit_breaker_tripped());
+    }
+
+    // -------------------------------------------------------------------
+    // Check ordering: circuit breaker has highest priority
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_circuit_breaker_priority_over_other_rejects() {
+        let mut checker = PreTradeChecker::new(RiskLimits {
+            max_order_size: 1,
+            max_daily_loss: 0,
+            ..RiskLimits::default()
+        });
+        // Multiple violations: order too large, daily loss hit, AND circuit breaker.
+        checker.update_daily_pnl(-1);
+        checker.trip_circuit_breaker();
+
+        let order = make_order(Side::Bid, 1000, 100);
+        // Circuit breaker should be returned, not OrderSizeTooLarge.
+        assert_eq!(
+            checker.check_order(&order, None),
+            Err(RiskReject::CircuitBreakerTripped)
+        );
+    }
+
+    // -------------------------------------------------------------------
+    // No position: defaults to zero net
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_no_position_large_bid_within_limit() {
+        let checker = default_checker();
+        // No position (None) → net=0, bid+100 → net=100, abs < 1000: pass.
+        let order = make_order(Side::Bid, 500, 100);
+        assert!(checker.check_order(&order, None).is_ok());
+    }
+
+    #[test]
+    fn test_no_position_large_ask_within_limit() {
+        let checker = default_checker();
+        // No position, ask-100 → net=-100, abs < 1000: pass.
+        let order = make_order(Side::Ask, 500, 100);
+        assert!(checker.check_order(&order, None).is_ok());
+    }
+
+    // -------------------------------------------------------------------
+    // RiskReject equality and debug
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_risk_reject_equality() {
+        let a = RiskReject::CircuitBreakerTripped;
+        let b = RiskReject::CircuitBreakerTripped;
+        assert_eq!(a, b);
+
+        let c = RiskReject::OrderSizeTooLarge { size: 10, limit: 5 };
+        let d = RiskReject::OrderSizeTooLarge { size: 10, limit: 5 };
+        assert_eq!(c, d);
+    }
+
+    #[test]
+    fn test_risk_reject_debug_format() {
+        let reject = RiskReject::PositionLimitBreached {
+            current: 900,
+            after: 1100,
+            limit: 1000,
+        };
+        let debug = format!("{:?}", reject);
+        assert!(debug.contains("PositionLimitBreached"));
+        assert!(debug.contains("900"));
+        assert!(debug.contains("1100"));
+    }
+
+    #[test]
+    fn test_risk_reject_clone() {
+        let original = RiskReject::NotionalExceeded {
+            notional: 500,
+            limit: 100,
+        };
+        let cloned = original.clone();
+        assert_eq!(original, cloned);
     }
 }

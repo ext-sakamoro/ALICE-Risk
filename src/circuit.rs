@@ -275,4 +275,162 @@ mod tests {
         cb.set_reference_price(10_600);
         assert!(cb.is_tripped());
     }
+
+    // -------------------------------------------------------------------
+    // Already-tripped behavior
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_on_fill_when_already_tripped_returns_true() {
+        let mut cb = make_cb();
+        cb.reset(10_000, 0);
+
+        // Trip via price move.
+        cb.on_fill(10_600, 100_000_000);
+        assert!(cb.is_tripped());
+
+        // Subsequent fill should immediately return true without processing.
+        assert!(cb.on_fill(10_000, 200_000_000));
+    }
+
+    // -------------------------------------------------------------------
+    // Window rolling edge cases
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_fill_at_exact_window_boundary_resets() {
+        let mut cb = make_cb();
+        cb.reset(10_000, 0);
+
+        // Fill 5 times within window.
+        for i in 0..5 {
+            cb.on_fill(10_050, i * 100_000_000);
+        }
+        assert!(!cb.is_tripped());
+
+        // Fill at exactly window_ns (1_000_000_000) should roll the window.
+        let tripped = cb.on_fill(10_050, 1_000_000_000);
+        assert!(!tripped);
+        assert!(!cb.is_tripped());
+    }
+
+    #[test]
+    fn test_window_roll_resets_reference_price() {
+        let mut cb = make_cb();
+        cb.reset(10_000, 0);
+
+        // Fill within window at a different price.
+        cb.on_fill(10_100, 100_000_000);
+        assert!(!cb.is_tripped());
+
+        // After window rolls, the new reference price is set to the fill price.
+        // A fill at the new window at 11_000 with reference updated to 11_000.
+        let tripped = cb.on_fill(11_000, 2_000_000_000);
+        // reference_price becomes 11_000 on window roll, so deviation = 0.
+        assert!(!tripped);
+
+        // Now a fill 501 above 11_000 should trip.
+        let tripped = cb.on_fill(11_501, 2_100_000_000);
+        assert!(tripped);
+    }
+
+    // -------------------------------------------------------------------
+    // Fill count boundary
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_exactly_max_fills_does_not_trip() {
+        let mut cb = make_cb();
+        cb.reset(10_000, 0);
+
+        // max_fills_per_window = 5; exactly 5 fills should NOT trip (>5 trips).
+        for i in 0..5 {
+            let tripped = cb.on_fill(10_050, i * 10_000_000);
+            assert!(!tripped, "fill {} should not trip", i);
+        }
+        assert!(!cb.is_tripped());
+    }
+
+    // -------------------------------------------------------------------
+    // Zero-tolerance breaker
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_zero_max_move_trips_on_any_deviation() {
+        let mut cb = CircuitBreaker::new(0, 100, 1_000_000_000);
+        cb.reset(10_000, 0);
+
+        // Any price deviation > 0 should trip.
+        assert!(cb.on_fill(10_001, 100_000_000));
+        assert!(cb.is_tripped());
+    }
+
+    #[test]
+    fn test_zero_max_move_no_trip_at_same_price() {
+        let mut cb = CircuitBreaker::new(0, 100, 1_000_000_000);
+        cb.reset(10_000, 0);
+
+        // Same price as reference: deviation = 0, not > 0.
+        assert!(!cb.on_fill(10_000, 100_000_000));
+    }
+
+    #[test]
+    fn test_zero_max_fills_trips_on_first_fill() {
+        let mut cb = CircuitBreaker::new(500, 0, 1_000_000_000);
+        cb.reset(10_000, 0);
+
+        // max_fills_per_window = 0; first fill increments count to 1 > 0.
+        assert!(cb.on_fill(10_000, 100_000_000));
+        assert!(cb.is_tripped());
+    }
+
+    // -------------------------------------------------------------------
+    // Multiple windows
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_multiple_window_rollovers() {
+        let mut cb = make_cb();
+        cb.reset(10_000, 0);
+
+        // Fill 5 in window 1, then roll to window 2 and fill 5 more.
+        for i in 0..5 {
+            assert!(!cb.on_fill(10_050, i * 100_000_000));
+        }
+
+        // Window 2.
+        for i in 0..5 {
+            let ts = 1_000_000_001 + i * 100_000_000;
+            assert!(!cb.on_fill(10_050, ts));
+        }
+
+        // Window 3.
+        for i in 0..5 {
+            let ts = 2_000_000_002 + i * 100_000_000;
+            assert!(!cb.on_fill(10_050, ts));
+        }
+
+        assert!(!cb.is_tripped());
+    }
+
+    // -------------------------------------------------------------------
+    // Reset after fill-count trip
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_reset_after_fill_count_trip() {
+        let mut cb = make_cb();
+        cb.reset(10_000, 0);
+
+        // Trip via fill count.
+        for i in 0..6 {
+            cb.on_fill(10_050, i * 10_000_000);
+        }
+        assert!(cb.is_tripped());
+
+        // Reset and verify normal operation resumes.
+        cb.reset(10_050, 500_000_000);
+        assert!(!cb.is_tripped());
+        assert!(!cb.on_fill(10_050, 600_000_000));
+    }
 }
