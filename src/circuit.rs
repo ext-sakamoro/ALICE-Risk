@@ -38,6 +38,7 @@ impl CircuitBreaker {
     /// [`CircuitBreaker::reset`] with a real price and timestamp before
     /// processing live fills.
     #[inline(always)]
+    #[must_use]
     pub fn new(max_move: i64, max_fills_per_window: u32, window_ns: u64) -> Self {
         Self {
             max_move,
@@ -62,6 +63,7 @@ impl CircuitBreaker {
     ///
     /// Returns `true` if this call caused a trip (or if the breaker was already
     /// tripped before this call).
+    #[must_use]
     pub fn on_fill(&mut self, price: i64, timestamp_ns: u64) -> bool {
         // If already tripped, short-circuit.
         if self.tripped {
@@ -95,6 +97,7 @@ impl CircuitBreaker {
 
     /// Return `true` if the circuit breaker is currently tripped.
     #[inline(always)]
+    #[must_use]
     pub fn is_tripped(&self) -> bool {
         self.tripped
     }
@@ -432,5 +435,64 @@ mod tests {
         cb.reset(10_050, 500_000_000);
         assert!(!cb.is_tripped());
         assert!(!cb.on_fill(10_050, 600_000_000));
+    }
+
+    // -------------------------------------------------------------------
+    // Property-based tests
+    // -------------------------------------------------------------------
+
+    use proptest::prelude::*;
+
+    proptest! {
+        /// If more fills than max_fills_per_window occur within the same window,
+        /// the breaker must trip.
+        #[test]
+        fn prop_fill_count_trips_breaker(
+            max_fills in 0u32..20u32,
+            excess in 1u32..10u32,
+        ) {
+            // Use a huge window so all fills land in the same window.
+            // Use price==reference_price so price deviation never fires.
+            let window_ns = u64::MAX;
+            let mut cb = CircuitBreaker::new(i64::MAX, max_fills, window_ns);
+            cb.reset(10_000, 0);
+
+            let total_fills = max_fills.saturating_add(excess);
+            let mut tripped = false;
+            for i in 0..total_fills {
+                // Timestamps increment by 1 ns; all stay within the huge window.
+                if cb.on_fill(10_000, i as u64 + 1) {
+                    tripped = true;
+                }
+            }
+            prop_assert!(
+                tripped,
+                "breaker should have tripped after {} fills (max={})",
+                total_fills,
+                max_fills
+            );
+            prop_assert!(cb.is_tripped());
+        }
+
+        /// After reset(), is_tripped() must always return false regardless of
+        /// the prior state.
+        #[test]
+        fn prop_reset_clears_trip(
+            ref_price in i64::MIN..i64::MAX,
+            timestamp in 0u64..u64::MAX / 2,
+            trip_first in any::<bool>(),
+        ) {
+            // max_fills=0 means the first fill trips the breaker.
+            let mut cb = CircuitBreaker::new(i64::MAX, 0, 1_000_000_000);
+            cb.reset(10_000, 0);
+
+            if trip_first {
+                cb.on_fill(10_000, 1);
+                prop_assert!(cb.is_tripped());
+            }
+
+            cb.reset(ref_price, timestamp);
+            prop_assert!(!cb.is_tripped());
+        }
     }
 }

@@ -5,6 +5,8 @@ edition = "2021"
 authors = ["Moroya Sakamoto"]
 description = "Pre-trade risk checks, margin calculation, and circuit breakers"
 license = "AGPL-3.0-only"
+repository = "https://github.com/ext-sakamoro/ALICE-Risk"
+keywords = ["risk", "pre-trade", "margin", "circuit-breaker", "finance"]
 publish = false
 
 [lib]
@@ -17,6 +19,9 @@ std = []
 
 [dependencies]
 alice-ledger = { path = "../ALICE-Ledger" }
+
+[dev-dependencies]
+proptest = "1.4"
 
 [profile.release]
 opt-level = 3

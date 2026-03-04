@@ -50,6 +50,7 @@ pub struct MarginCalculator {
 impl MarginCalculator {
     /// Create a new margin calculator with the given parameters.
     #[inline(always)]
+    #[must_use]
     pub fn new(params: MarginParams) -> Self {
         Self { params }
     }
@@ -60,6 +61,7 @@ impl MarginCalculator {
     ///
     /// Uses an i128 intermediate to prevent overflow on large values.
     #[inline(always)]
+    #[must_use]
     pub fn initial_margin(&self, price: i64, quantity: u64) -> i64 {
         let numerator = (price as i128)
             .saturating_mul(quantity as i128)
@@ -73,6 +75,7 @@ impl MarginCalculator {
     ///
     /// Uses an i128 intermediate to prevent overflow on large values.
     #[inline(always)]
+    #[must_use]
     pub fn maintenance_margin(&self, price: i64, quantity: u64) -> i64 {
         let numerator = (price as i128)
             .saturating_mul(quantity as i128)
@@ -85,6 +88,7 @@ impl MarginCalculator {
     /// A margin call is triggered when the account can no longer sustain the
     /// current position at the prevailing mark price.
     #[inline(always)]
+    #[must_use]
     pub fn is_margin_call(&self, price: i64, position_qty: u64, account_equity: i64) -> bool {
         account_equity < self.maintenance_margin(price, position_qty)
     }
@@ -100,6 +104,7 @@ impl MarginCalculator {
     ///
     /// If `quantity` is zero, `entry_price` is returned unchanged.
     #[inline(always)]
+    #[must_use]
     pub fn liquidation_price(
         &self,
         entry_price: i64,
@@ -415,5 +420,61 @@ mod tests {
         // liq_long = entry - distance, liq_short = entry + distance
         // distance should be equal in magnitude:
         assert_eq!(entry - liq_long, liq_short - entry);
+    }
+
+    // -------------------------------------------------------------------
+    // Property-based tests
+    // -------------------------------------------------------------------
+
+    use proptest::prelude::*;
+
+    proptest! {
+        /// For any non-negative price and any quantity, initial_margin and
+        /// maintenance_margin must both be non-negative.
+        #[test]
+        fn prop_margin_non_negative(
+            price in 0i64..i64::MAX,
+            quantity in 0u64..u64::MAX,
+        ) {
+            let calc = default_calc();
+            prop_assert!(calc.initial_margin(price, quantity) >= 0);
+            prop_assert!(calc.maintenance_margin(price, quantity) >= 0);
+        }
+
+        /// When maintenance_bps <= initial_bps, maintenance_margin must be
+        /// <= initial_margin for any price and quantity.
+        #[test]
+        fn prop_maintenance_le_initial(
+            maintenance_bps in 0u32..10_000u32,
+            extra_bps in 0u32..10_000u32,
+            price in 0i64..1_000_000i64,
+            quantity in 0u64..1_000_000u64,
+        ) {
+            let initial_bps = maintenance_bps.saturating_add(extra_bps);
+            let calc = MarginCalculator::new(MarginParams {
+                initial_margin_bps: initial_bps,
+                maintenance_margin_bps: maintenance_bps,
+            });
+            prop_assert!(
+                calc.maintenance_margin(price, quantity) <= calc.initial_margin(price, quantity)
+            );
+        }
+
+        /// is_margin_call returns true if and only if account_equity is strictly
+        /// less than maintenance_margin(price, position_qty).
+        #[test]
+        fn prop_margin_call_consistency(
+            price in 0i64..1_000_000i64,
+            position_qty in 0u64..1_000_000u64,
+            account_equity in i64::MIN..i64::MAX,
+        ) {
+            let calc = default_calc();
+            let maint = calc.maintenance_margin(price, position_qty);
+            let expected = account_equity < maint;
+            prop_assert_eq!(
+                calc.is_margin_call(price, position_qty, account_equity),
+                expected
+            );
+        }
     }
 }

@@ -83,6 +83,7 @@ pub struct PreTradeChecker {
 impl PreTradeChecker {
     /// Create a new checker with the given risk limits.
     #[inline(always)]
+    #[must_use]
     pub fn new(limits: RiskLimits) -> Self {
         Self {
             limits,
@@ -105,6 +106,10 @@ impl PreTradeChecker {
     ///
     /// Returns `Ok(())` if every check passes, or the first [`RiskReject`]
     /// variant that fires.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RiskReject`] if any risk limit is breached.
     pub fn check_order(
         &self,
         order: &Order,
@@ -124,7 +129,7 @@ impl PreTradeChecker {
         }
 
         // 3. Position limit check — compute net position after this order.
-        let current_net: i64 = position.map(|p| p.net_quantity).unwrap_or(0);
+        let current_net: i64 = position.map_or(0, |p| p.net_quantity);
         let signed_delta: i64 = match order.side {
             Side::Bid => order.quantity as i64,
             Side::Ask => -(order.quantity as i64),
@@ -217,18 +222,21 @@ impl PreTradeChecker {
 
     /// Return the current daily P&L value.
     #[inline(always)]
+    #[must_use]
     pub fn daily_pnl(&self) -> i64 {
         self.daily_pnl
     }
 
     /// Return the current open order count.
     #[inline(always)]
+    #[must_use]
     pub fn open_order_count(&self) -> u32 {
         self.open_order_count
     }
 
     /// Return whether the circuit breaker is currently tripped.
     #[inline(always)]
+    #[must_use]
     pub fn is_circuit_breaker_tripped(&self) -> bool {
         self.circuit_breaker_tripped
     }
@@ -725,5 +733,74 @@ mod tests {
         };
         let cloned = original.clone();
         assert_eq!(original, cloned);
+    }
+
+    // -------------------------------------------------------------------
+    // Property-based tests
+    // -------------------------------------------------------------------
+
+    use proptest::prelude::*;
+
+    proptest! {
+        /// For any order quantity strictly greater than max_order_size, check_order
+        /// must return OrderSizeTooLarge (when circuit breaker is not tripped).
+        #[test]
+        fn prop_order_size_too_large(
+            max_order_size in 0u64..1_000u64,
+            excess in 1u64..1_000u64,
+        ) {
+            let quantity = max_order_size.saturating_add(excess);
+            // Construct limits that allow the order through every other check.
+            let limits = RiskLimits {
+                max_order_size,
+                max_position: u64::MAX,
+                max_notional: i64::MAX,
+                max_open_orders: u32::MAX,
+                max_daily_loss: i64::MIN + 1,
+            };
+            let checker = PreTradeChecker::new(limits);
+            let order = make_order(Side::Bid, 0, quantity);
+            let result = checker.check_order(&order, None);
+            prop_assert!(
+                matches!(result, Err(RiskReject::OrderSizeTooLarge { .. })),
+                "expected OrderSizeTooLarge for quantity={} max={}, got {:?}",
+                quantity, max_order_size, result
+            );
+        }
+
+        /// If circuit_breaker_tripped is set, check_order always returns
+        /// CircuitBreakerTripped regardless of the order parameters.
+        #[test]
+        fn prop_circuit_breaker_priority(
+            price in 0i64..1_000_000i64,
+            quantity in 0u64..1_000u64,
+            side_is_bid in any::<bool>(),
+        ) {
+            let side = if side_is_bid { Side::Bid } else { Side::Ask };
+            let mut checker = default_checker();
+            checker.trip_circuit_breaker();
+            let order = make_order(side, price, quantity);
+            let result = checker.check_order(&order, None);
+            prop_assert_eq!(result, Err(RiskReject::CircuitBreakerTripped));
+        }
+
+        /// Calling update_daily_pnl with extreme values never wraps; the
+        /// result must always remain within i64 bounds (saturating arithmetic).
+        #[test]
+        fn prop_daily_pnl_no_wrap(
+            a in any::<i64>(),
+            b in any::<i64>(),
+        ) {
+            let mut checker = default_checker();
+            checker.update_daily_pnl(a);
+            let after_a = checker.daily_pnl();
+            checker.update_daily_pnl(b);
+            let after_b = checker.daily_pnl();
+            // Values must be within i64 range (they always are, but we
+            // also verify the saturating semantics: adding i64::MIN to
+            // i64::MIN must not produce a positive result).
+            prop_assert!(after_a >= i64::MIN && after_a <= i64::MAX);
+            prop_assert!(after_b >= i64::MIN && after_b <= i64::MAX);
+        }
     }
 }

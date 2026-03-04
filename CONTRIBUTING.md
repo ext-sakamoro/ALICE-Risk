@@ -1,5 +1,10 @@
 # Contributing to ALICE-Risk
 
+## Prerequisites
+
+- Rust 1.70+
+- `alice-ledger` crate (path dependency `../ALICE-Ledger`)
+
 ## Build
 
 ```bash
@@ -19,6 +24,14 @@ cargo clippy -- -W clippy::all
 cargo fmt -- --check
 cargo doc --no-deps 2>&1 | grep warning
 ```
+
+## Code Style
+
+- `cargo fmt` — 必須
+- `cargo clippy --tests -- -W clippy::all -W clippy::pedantic` — 警告ゼロ
+- `cargo doc --no-deps` — 警告ゼロ
+- コメント・コミットメッセージは日本語
+- 作成者: Moroya Sakamoto
 
 ## Design Constraints
 
