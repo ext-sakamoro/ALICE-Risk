@@ -51,7 +51,7 @@ impl MarginCalculator {
     /// Create a new margin calculator with the given parameters.
     #[inline(always)]
     #[must_use]
-    pub fn new(params: MarginParams) -> Self {
+    pub const fn new(params: MarginParams) -> Self {
         Self { params }
     }
 
@@ -420,6 +420,62 @@ mod tests {
         // liq_long = entry - distance, liq_short = entry + distance
         // distance should be equal in magnitude:
         assert_eq!(entry - liq_long, liq_short - entry);
+    }
+
+    // -------------------------------------------------------------------
+    // Custom bps: initial_margin with non-default rate
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_initial_margin_custom_bps() {
+        // 500 bps = 5%; price=20_000, qty=4 → 20_000 * 4 * 500 / 10_000 = 4_000
+        let calc = MarginCalculator::new(MarginParams {
+            initial_margin_bps: 500,
+            maintenance_margin_bps: 250,
+        });
+        assert_eq!(calc.initial_margin(20_000, 4), 4_000);
+    }
+
+    // -------------------------------------------------------------------
+    // Maintenance margin rounds to zero for tiny qty (integer division)
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_maintenance_margin_rounds_to_zero_for_unit_qty() {
+        // price=1, qty=1, bps=500 → 1 * 1 * 500 / 10_000 = 0 (integer truncation)
+        let calc = default_calc();
+        assert_eq!(calc.maintenance_margin(1, 1), 0);
+    }
+
+    // -------------------------------------------------------------------
+    // Liquidation price: large equity pushes distance past entry → saturates
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_liquidation_price_long_large_equity_saturates() {
+        let calc = default_calc();
+        // equity so large that distance > entry_price → liq_price saturates at
+        // entry_price - distance which may go negative (i64 saturating_sub).
+        // entry=100, qty=1, equity=10_000_000, maint_bps=500
+        // distance = 10_000_000 * 10_000 / (1 * 500) = 200_000_000
+        // liq = 100 - 200_000_000 = -199_999_900
+        let liq = calc.liquidation_price(100, 1, 10_000_000, true);
+        assert_eq!(liq, 100 - 200_000_000);
+    }
+
+    // -------------------------------------------------------------------
+    // is_margin_call: zero-bps maintenance, large equity — never triggers
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_margin_call_zero_maint_bps_never_triggers() {
+        // maintenance margin is always 0 when bps=0, so equity >= 0 never fires.
+        let calc = MarginCalculator::new(MarginParams {
+            initial_margin_bps: 1000,
+            maintenance_margin_bps: 0,
+        });
+        assert!(!calc.is_margin_call(50_000, 1_000, 0));
+        assert!(!calc.is_margin_call(50_000, 1_000, i64::MAX));
     }
 
     // -------------------------------------------------------------------

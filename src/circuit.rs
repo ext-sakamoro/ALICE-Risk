@@ -39,7 +39,7 @@ impl CircuitBreaker {
     /// processing live fills.
     #[inline(always)]
     #[must_use]
-    pub fn new(max_move: i64, max_fills_per_window: u32, window_ns: u64) -> Self {
+    pub const fn new(max_move: i64, max_fills_per_window: u32, window_ns: u64) -> Self {
         Self {
             max_move,
             max_fills_per_window,
@@ -64,7 +64,7 @@ impl CircuitBreaker {
     /// Returns `true` if this call caused a trip (or if the breaker was already
     /// tripped before this call).
     #[must_use]
-    pub fn on_fill(&mut self, price: i64, timestamp_ns: u64) -> bool {
+    pub const fn on_fill(&mut self, price: i64, timestamp_ns: u64) -> bool {
         // If already tripped, short-circuit.
         if self.tripped {
             return true;
@@ -98,7 +98,7 @@ impl CircuitBreaker {
     /// Return `true` if the circuit breaker is currently tripped.
     #[inline(always)]
     #[must_use]
-    pub fn is_tripped(&self) -> bool {
+    pub const fn is_tripped(&self) -> bool {
         self.tripped
     }
 
@@ -107,7 +107,7 @@ impl CircuitBreaker {
     /// Clears the trip flag, fill counter, and starts a new window anchored at
     /// `timestamp_ns` with `reference_price` as the new baseline.
     #[inline(always)]
-    pub fn reset(&mut self, reference_price: i64, timestamp_ns: u64) {
+    pub const fn reset(&mut self, reference_price: i64, timestamp_ns: u64) {
         self.tripped = false;
         self.fills_in_window = 0;
         self.window_start_ns = timestamp_ns;
@@ -119,7 +119,7 @@ impl CircuitBreaker {
     /// Use this to track a slowly drifting fair value while preserving the
     /// current window's fill count.
     #[inline(always)]
-    pub fn set_reference_price(&mut self, price: i64) {
+    pub const fn set_reference_price(&mut self, price: i64) {
         self.reference_price = price;
     }
 }
@@ -276,6 +276,32 @@ mod tests {
 
         // Updating the reference price must NOT clear the trip.
         cb.set_reference_price(10_600);
+        assert!(cb.is_tripped());
+    }
+
+    // -------------------------------------------------------------------
+    // set_reference_price does not reset the fill counter
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_set_reference_price_preserves_fill_count() {
+        // max_fills=5 — fill 5 times (at the limit, not yet tripped), then update
+        // the reference price; the 6th fill must still trip the breaker because
+        // set_reference_price does not reset fills_in_window.
+        let mut cb = make_cb();
+        cb.reset(10_000, 0);
+
+        for i in 0..5 {
+            assert!(!cb.on_fill(10_050, i * 10_000_000));
+        }
+        assert!(!cb.is_tripped());
+
+        // Shift the reference so the next fill's price is within max_move.
+        cb.set_reference_price(10_050);
+
+        // 6th fill — fill counter now exceeds max_fills_per_window=5.
+        let tripped = cb.on_fill(10_050, 6 * 10_000_000);
+        assert!(tripped, "6th fill should trip via fill-count limit");
         assert!(cb.is_tripped());
     }
 

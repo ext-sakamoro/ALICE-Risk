@@ -84,7 +84,7 @@ impl PreTradeChecker {
     /// Create a new checker with the given risk limits.
     #[inline(always)]
     #[must_use]
-    pub fn new(limits: RiskLimits) -> Self {
+    pub const fn new(limits: RiskLimits) -> Self {
         Self {
             limits,
             daily_pnl: 0,
@@ -181,32 +181,32 @@ impl PreTradeChecker {
     /// a loss. When the total reaches `max_daily_loss`, subsequent orders
     /// will be rejected by [`Self::check_order`].
     #[inline(always)]
-    pub fn update_daily_pnl(&mut self, pnl: i64) {
+    pub const fn update_daily_pnl(&mut self, pnl: i64) {
         self.daily_pnl = self.daily_pnl.saturating_add(pnl);
     }
 
     /// Record that a new order has been placed on the book.
     #[inline(always)]
-    pub fn increment_open_orders(&mut self) {
+    pub const fn increment_open_orders(&mut self) {
         self.open_order_count = self.open_order_count.saturating_add(1);
     }
 
     /// Record that an open order has been cancelled or fully filled.
     #[inline(always)]
-    pub fn decrement_open_orders(&mut self) {
+    pub const fn decrement_open_orders(&mut self) {
         self.open_order_count = self.open_order_count.saturating_sub(1);
     }
 
     /// Trip the circuit breaker, blocking all further order submissions until
     /// [`Self::reset_circuit_breaker`] is called.
     #[inline(always)]
-    pub fn trip_circuit_breaker(&mut self) {
+    pub const fn trip_circuit_breaker(&mut self) {
         self.circuit_breaker_tripped = true;
     }
 
     /// Clear the circuit breaker, allowing order submissions to resume.
     #[inline(always)]
-    pub fn reset_circuit_breaker(&mut self) {
+    pub const fn reset_circuit_breaker(&mut self) {
         self.circuit_breaker_tripped = false;
     }
 
@@ -215,7 +215,7 @@ impl PreTradeChecker {
     /// The circuit breaker state is intentionally preserved across daily
     /// resets; it must be explicitly cleared with [`Self::reset_circuit_breaker`].
     #[inline(always)]
-    pub fn reset_daily(&mut self) {
+    pub const fn reset_daily(&mut self) {
         self.daily_pnl = 0;
         self.open_order_count = 0;
     }
@@ -223,21 +223,21 @@ impl PreTradeChecker {
     /// Return the current daily P&L value.
     #[inline(always)]
     #[must_use]
-    pub fn daily_pnl(&self) -> i64 {
+    pub const fn daily_pnl(&self) -> i64 {
         self.daily_pnl
     }
 
     /// Return the current open order count.
     #[inline(always)]
     #[must_use]
-    pub fn open_order_count(&self) -> u32 {
+    pub const fn open_order_count(&self) -> u32 {
         self.open_order_count
     }
 
     /// Return whether the circuit breaker is currently tripped.
     #[inline(always)]
     #[must_use]
-    pub fn is_circuit_breaker_tripped(&self) -> bool {
+    pub const fn is_circuit_breaker_tripped(&self) -> bool {
         self.circuit_breaker_tripped
     }
 }
@@ -695,6 +695,58 @@ mod tests {
         // No position, ask-100 → net=-100, abs < 1000: pass.
         let order = make_order(Side::Ask, 500, 100);
         assert!(checker.check_order(&order, None).is_ok());
+    }
+
+    // -------------------------------------------------------------------
+    // Zero-size order passes size and notional checks
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_zero_quantity_order_passes() {
+        let checker = default_checker();
+        // quantity=0 is <= max_order_size; notional=0 is <= max_notional; passes all.
+        let order = make_order(Side::Bid, 1_000_000, 0);
+        assert!(checker.check_order(&order, None).is_ok());
+    }
+
+    // -------------------------------------------------------------------
+    // update_daily_pnl saturates at i64::MIN without overflow
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_update_daily_pnl_saturates_at_min() {
+        let mut checker = default_checker();
+        checker.update_daily_pnl(i64::MIN);
+        // Adding any negative value to i64::MIN must not wrap — stays at i64::MIN.
+        checker.update_daily_pnl(-1);
+        assert_eq!(checker.daily_pnl(), i64::MIN);
+    }
+
+    // -------------------------------------------------------------------
+    // Order-size check fires before position-limit check (priority ordering)
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_order_size_rejects_before_position_limit() {
+        // Limits: tiny max_order_size=5, huge position limit.
+        let checker = PreTradeChecker::new(RiskLimits {
+            max_order_size: 5,
+            max_position: u64::MAX,
+            max_notional: i64::MAX,
+            max_open_orders: u32::MAX,
+            max_daily_loss: i64::MIN + 1,
+        });
+        // quantity=10 violates order size; if position check ran first it would pass.
+        let order = make_order(Side::Bid, 1, 10);
+        let result = checker.check_order(&order, None);
+        assert!(
+            matches!(
+                result,
+                Err(RiskReject::OrderSizeTooLarge { size: 10, limit: 5 })
+            ),
+            "expected OrderSizeTooLarge, got {:?}",
+            result
+        );
     }
 
     // -------------------------------------------------------------------
