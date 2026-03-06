@@ -67,13 +67,21 @@
 
 pub mod check;
 pub mod circuit;
+pub mod counterparty;
+pub mod greeks;
 pub mod limit;
 pub mod margin;
+pub mod stress;
+pub mod var;
 
 pub use check::{PreTradeChecker, RiskReject};
 pub use circuit::CircuitBreaker;
+pub use counterparty::{CounterpartyLimits, CounterpartyReject, CounterpartyTracker};
+pub use greeks::{check_greeks, GreeksExposure, GreeksLimits, GreeksReject};
 pub use limit::RiskLimits;
 pub use margin::{MarginCalculator, MarginParams};
+pub use stress::{apply_scenario, stress_test_portfolio, StressResult, StressScenario};
+pub use var::{HistoricalVaR, ParametricVaR};
 
 /// ALICE-Risk crate version.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
