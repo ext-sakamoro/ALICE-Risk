@@ -20,6 +20,33 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Ledger
           path: ALICE-Ledger
+      - uses: actions/checkout@v4
+        with:
+          repository: ext-sakamoro/ALICE-Sync
+          path: ALICE-Sync
+      - name: Create dependency stubs
+        run: |
+          for crate_info in \
+            "ALICE-Physics:alice-physics" \
+            "ALICE-DB:alice-db" \
+            "ALICE-Cache:alice-cache" \
+            "ALICE-Auth:alice-auth" \
+            "ALICE-Codec:alice-codec" \
+            "ALICE-Analytics:alice-analytics"; do
+            dir=$(echo "$crate_info" | cut -d: -f1)
+            pkg=$(echo "$crate_info" | cut -d: -f2)
+            mkdir -p "$dir/src"
+            cat > "$dir/Cargo.toml" << TOML
+          [package]
+          name = "$pkg"
+          version = "0.1.0"
+          edition = "2021"
+          [features]
+          default = []
+          std = []
+          TOML
+            echo "" > "$dir/src/lib.rs"
+          done
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --manifest-path ALICE-Risk/Cargo.toml
 
@@ -33,6 +60,33 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Ledger
           path: ALICE-Ledger
+      - uses: actions/checkout@v4
+        with:
+          repository: ext-sakamoro/ALICE-Sync
+          path: ALICE-Sync
+      - name: Create dependency stubs
+        run: |
+          for crate_info in \
+            "ALICE-Physics:alice-physics" \
+            "ALICE-DB:alice-db" \
+            "ALICE-Cache:alice-cache" \
+            "ALICE-Auth:alice-auth" \
+            "ALICE-Codec:alice-codec" \
+            "ALICE-Analytics:alice-analytics"; do
+            dir=$(echo "$crate_info" | cut -d: -f1)
+            pkg=$(echo "$crate_info" | cut -d: -f2)
+            mkdir -p "$dir/src"
+            cat > "$dir/Cargo.toml" << TOML
+          [package]
+          name = "$pkg"
+          version = "0.1.0"
+          edition = "2021"
+          [features]
+          default = []
+          std = []
+          TOML
+            echo "" > "$dir/src/lib.rs"
+          done
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -57,5 +111,32 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Ledger
           path: ALICE-Ledger
+      - uses: actions/checkout@v4
+        with:
+          repository: ext-sakamoro/ALICE-Sync
+          path: ALICE-Sync
+      - name: Create dependency stubs
+        run: |
+          for crate_info in \
+            "ALICE-Physics:alice-physics" \
+            "ALICE-DB:alice-db" \
+            "ALICE-Cache:alice-cache" \
+            "ALICE-Auth:alice-auth" \
+            "ALICE-Codec:alice-codec" \
+            "ALICE-Analytics:alice-analytics"; do
+            dir=$(echo "$crate_info" | cut -d: -f1)
+            pkg=$(echo "$crate_info" | cut -d: -f2)
+            mkdir -p "$dir/src"
+            cat > "$dir/Cargo.toml" << TOML
+          [package]
+          name = "$pkg"
+          version = "0.1.0"
+          edition = "2021"
+          [features]
+          default = []
+          std = []
+          TOML
+            echo "" > "$dir/src/lib.rs"
+          done
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo doc --manifest-path ALICE-Risk/Cargo.toml --no-deps 2>&1 | (! grep warning)
