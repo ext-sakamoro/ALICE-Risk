@@ -24,17 +24,23 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Sync
           path: ALICE-Sync
+      - uses: actions/checkout@v4
+        with:
+          repository: ext-sakamoro/ALICE-DB
+          path: ALICE-DB
+      - uses: actions/checkout@v4
+        with:
+          repository: ext-sakamoro/ALICE-Zip
+          path: ALICE-Zip
       - name: Create dependency stubs
         run: |
           for crate_info in \
-            "ALICE-DB:alice-db" \
             "ALICE-Physics:alice-physics" \
             "ALICE-Cache:alice-cache" \
             "ALICE-Auth:alice-auth" \
             "ALICE-Codec:alice-codec" \
             "ALICE-Analytics:alice-analytics" \
-            "ALICE-Crypto:alice-crypto" \
-            "ALICE-Zip/libalice:alice-zip"; do
+            "ALICE-Crypto:alice-crypto"; do
             dir=$(echo "$crate_info" | cut -d: -f1)
             pkg=$(echo "$crate_info" | cut -d: -f2)
             mkdir -p "$dir/src"
@@ -66,17 +72,23 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Sync
           path: ALICE-Sync
+      - uses: actions/checkout@v4
+        with:
+          repository: ext-sakamoro/ALICE-DB
+          path: ALICE-DB
+      - uses: actions/checkout@v4
+        with:
+          repository: ext-sakamoro/ALICE-Zip
+          path: ALICE-Zip
       - name: Create dependency stubs
         run: |
           for crate_info in \
-            "ALICE-DB:alice-db" \
             "ALICE-Physics:alice-physics" \
             "ALICE-Cache:alice-cache" \
             "ALICE-Auth:alice-auth" \
             "ALICE-Codec:alice-codec" \
             "ALICE-Analytics:alice-analytics" \
-            "ALICE-Crypto:alice-crypto" \
-            "ALICE-Zip/libalice:alice-zip"; do
+            "ALICE-Crypto:alice-crypto"; do
             dir=$(echo "$crate_info" | cut -d: -f1)
             pkg=$(echo "$crate_info" | cut -d: -f2)
             mkdir -p "$dir/src"
@@ -119,17 +131,23 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Sync
           path: ALICE-Sync
+      - uses: actions/checkout@v4
+        with:
+          repository: ext-sakamoro/ALICE-DB
+          path: ALICE-DB
+      - uses: actions/checkout@v4
+        with:
+          repository: ext-sakamoro/ALICE-Zip
+          path: ALICE-Zip
       - name: Create dependency stubs
         run: |
           for crate_info in \
-            "ALICE-DB:alice-db" \
             "ALICE-Physics:alice-physics" \
             "ALICE-Cache:alice-cache" \
             "ALICE-Auth:alice-auth" \
             "ALICE-Codec:alice-codec" \
             "ALICE-Analytics:alice-analytics" \
-            "ALICE-Crypto:alice-crypto" \
-            "ALICE-Zip/libalice:alice-zip"; do
+            "ALICE-Crypto:alice-crypto"; do
             dir=$(echo "$crate_info" | cut -d: -f1)
             pkg=$(echo "$crate_info" | cut -d: -f2)
             mkdir -p "$dir/src"
