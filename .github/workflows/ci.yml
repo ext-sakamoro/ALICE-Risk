@@ -24,15 +24,20 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Sync
           path: ALICE-Sync
+      - uses: actions/checkout@v4
+        with:
+          repository: ext-sakamoro/ALICE-DB
+          path: ALICE-DB
       - name: Create dependency stubs
         run: |
           for crate_info in \
             "ALICE-Physics:alice-physics" \
-            "ALICE-DB:alice-db" \
             "ALICE-Cache:alice-cache" \
             "ALICE-Auth:alice-auth" \
             "ALICE-Codec:alice-codec" \
-            "ALICE-Analytics:alice-analytics"; do
+            "ALICE-Analytics:alice-analytics" \
+            "ALICE-Crypto:alice-crypto" \
+            "ALICE-Zip/libalice:alice-zip"; do
             dir=$(echo "$crate_info" | cut -d: -f1)
             pkg=$(echo "$crate_info" | cut -d: -f2)
             mkdir -p "$dir/src"
@@ -64,15 +69,20 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Sync
           path: ALICE-Sync
+      - uses: actions/checkout@v4
+        with:
+          repository: ext-sakamoro/ALICE-DB
+          path: ALICE-DB
       - name: Create dependency stubs
         run: |
           for crate_info in \
             "ALICE-Physics:alice-physics" \
-            "ALICE-DB:alice-db" \
             "ALICE-Cache:alice-cache" \
             "ALICE-Auth:alice-auth" \
             "ALICE-Codec:alice-codec" \
-            "ALICE-Analytics:alice-analytics"; do
+            "ALICE-Analytics:alice-analytics" \
+            "ALICE-Crypto:alice-crypto" \
+            "ALICE-Zip/libalice:alice-zip"; do
             dir=$(echo "$crate_info" | cut -d: -f1)
             pkg=$(echo "$crate_info" | cut -d: -f2)
             mkdir -p "$dir/src"
@@ -115,15 +125,20 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Sync
           path: ALICE-Sync
+      - uses: actions/checkout@v4
+        with:
+          repository: ext-sakamoro/ALICE-DB
+          path: ALICE-DB
       - name: Create dependency stubs
         run: |
           for crate_info in \
             "ALICE-Physics:alice-physics" \
-            "ALICE-DB:alice-db" \
             "ALICE-Cache:alice-cache" \
             "ALICE-Auth:alice-auth" \
             "ALICE-Codec:alice-codec" \
-            "ALICE-Analytics:alice-analytics"; do
+            "ALICE-Analytics:alice-analytics" \
+            "ALICE-Crypto:alice-crypto" \
+            "ALICE-Zip/libalice:alice-zip"; do
             dir=$(echo "$crate_info" | cut -d: -f1)
             pkg=$(echo "$crate_info" | cut -d: -f2)
             mkdir -p "$dir/src"
