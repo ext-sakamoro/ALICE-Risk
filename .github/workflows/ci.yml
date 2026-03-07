@@ -24,14 +24,6 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Sync
           path: ALICE-Sync
-      - uses: actions/checkout@v4
-        with:
-          repository: ext-sakamoro/ALICE-DB
-          path: ALICE-DB
-      - uses: actions/checkout@v4
-        with:
-          repository: ext-sakamoro/ALICE-Zip
-          path: ALICE-Zip
       - name: Create dependency stubs
         run: |
           for crate_info in \
@@ -40,7 +32,8 @@ jobs:
             "ALICE-Auth:alice-auth" \
             "ALICE-Codec:alice-codec" \
             "ALICE-Analytics:alice-analytics" \
-            "ALICE-Crypto:alice-crypto"; do
+            "ALICE-Crypto:alice-crypto" \
+            "ALICE-Zip/libalice:alice-zip"; do
             dir=$(echo "$crate_info" | cut -d: -f1)
             pkg=$(echo "$crate_info" | cut -d: -f2)
             mkdir -p "$dir/src"
@@ -55,6 +48,31 @@ jobs:
           TOML
             echo "" > "$dir/src/lib.rs"
           done
+          # alice-db stub: export AliceDB + Aggregation used by ALICE-Sync telemetry
+          mkdir -p "ALICE-DB/src"
+          cat > "ALICE-DB/Cargo.toml" << TOML
+          [package]
+          name = "alice-db"
+          version = "0.1.0"
+          edition = "2021"
+          [features]
+          default = []
+          std = []
+          [dependencies]
+          TOML
+          cat > "ALICE-DB/src/lib.rs" << 'RUST'
+          use std::path::Path;
+          use std::io;
+          #[allow(dead_code)]
+          pub enum Aggregation { None, Sum, Avg, Min, Max, Count, First, Last, StdDev, Variance }
+          pub struct AliceDB;
+          impl AliceDB {
+              pub fn open<P: AsRef<Path>>(_p: P) -> io::Result<Self> { Ok(Self) }
+              pub fn put(&self, _ts: i64, _v: f32) -> io::Result<()> { Ok(()) }
+              pub fn put_batch(&self, _d: &[(i64, f32)]) -> io::Result<()> { Ok(()) }
+              pub fn aggregate(&self, _s: i64, _e: i64, _a: Aggregation) -> io::Result<f64> { Ok(0.0) }
+          }
+          RUST
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --manifest-path ALICE-Risk/Cargo.toml
 
@@ -72,14 +90,6 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Sync
           path: ALICE-Sync
-      - uses: actions/checkout@v4
-        with:
-          repository: ext-sakamoro/ALICE-DB
-          path: ALICE-DB
-      - uses: actions/checkout@v4
-        with:
-          repository: ext-sakamoro/ALICE-Zip
-          path: ALICE-Zip
       - name: Create dependency stubs
         run: |
           for crate_info in \
@@ -88,7 +98,8 @@ jobs:
             "ALICE-Auth:alice-auth" \
             "ALICE-Codec:alice-codec" \
             "ALICE-Analytics:alice-analytics" \
-            "ALICE-Crypto:alice-crypto"; do
+            "ALICE-Crypto:alice-crypto" \
+            "ALICE-Zip/libalice:alice-zip"; do
             dir=$(echo "$crate_info" | cut -d: -f1)
             pkg=$(echo "$crate_info" | cut -d: -f2)
             mkdir -p "$dir/src"
@@ -103,6 +114,31 @@ jobs:
           TOML
             echo "" > "$dir/src/lib.rs"
           done
+          # alice-db stub: export AliceDB + Aggregation used by ALICE-Sync telemetry
+          mkdir -p "ALICE-DB/src"
+          cat > "ALICE-DB/Cargo.toml" << TOML
+          [package]
+          name = "alice-db"
+          version = "0.1.0"
+          edition = "2021"
+          [features]
+          default = []
+          std = []
+          [dependencies]
+          TOML
+          cat > "ALICE-DB/src/lib.rs" << 'RUST'
+          use std::path::Path;
+          use std::io;
+          #[allow(dead_code)]
+          pub enum Aggregation { None, Sum, Avg, Min, Max, Count, First, Last, StdDev, Variance }
+          pub struct AliceDB;
+          impl AliceDB {
+              pub fn open<P: AsRef<Path>>(_p: P) -> io::Result<Self> { Ok(Self) }
+              pub fn put(&self, _ts: i64, _v: f32) -> io::Result<()> { Ok(()) }
+              pub fn put_batch(&self, _d: &[(i64, f32)]) -> io::Result<()> { Ok(()) }
+              pub fn aggregate(&self, _s: i64, _e: i64, _a: Aggregation) -> io::Result<f64> { Ok(0.0) }
+          }
+          RUST
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -131,14 +167,6 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Sync
           path: ALICE-Sync
-      - uses: actions/checkout@v4
-        with:
-          repository: ext-sakamoro/ALICE-DB
-          path: ALICE-DB
-      - uses: actions/checkout@v4
-        with:
-          repository: ext-sakamoro/ALICE-Zip
-          path: ALICE-Zip
       - name: Create dependency stubs
         run: |
           for crate_info in \
@@ -147,7 +175,8 @@ jobs:
             "ALICE-Auth:alice-auth" \
             "ALICE-Codec:alice-codec" \
             "ALICE-Analytics:alice-analytics" \
-            "ALICE-Crypto:alice-crypto"; do
+            "ALICE-Crypto:alice-crypto" \
+            "ALICE-Zip/libalice:alice-zip"; do
             dir=$(echo "$crate_info" | cut -d: -f1)
             pkg=$(echo "$crate_info" | cut -d: -f2)
             mkdir -p "$dir/src"
@@ -162,5 +191,30 @@ jobs:
           TOML
             echo "" > "$dir/src/lib.rs"
           done
+          # alice-db stub: export AliceDB + Aggregation used by ALICE-Sync telemetry
+          mkdir -p "ALICE-DB/src"
+          cat > "ALICE-DB/Cargo.toml" << TOML
+          [package]
+          name = "alice-db"
+          version = "0.1.0"
+          edition = "2021"
+          [features]
+          default = []
+          std = []
+          [dependencies]
+          TOML
+          cat > "ALICE-DB/src/lib.rs" << 'RUST'
+          use std::path::Path;
+          use std::io;
+          #[allow(dead_code)]
+          pub enum Aggregation { None, Sum, Avg, Min, Max, Count, First, Last, StdDev, Variance }
+          pub struct AliceDB;
+          impl AliceDB {
+              pub fn open<P: AsRef<Path>>(_p: P) -> io::Result<Self> { Ok(Self) }
+              pub fn put(&self, _ts: i64, _v: f32) -> io::Result<()> { Ok(()) }
+              pub fn put_batch(&self, _d: &[(i64, f32)]) -> io::Result<()> { Ok(()) }
+              pub fn aggregate(&self, _s: i64, _e: i64, _a: Aggregation) -> io::Result<f64> { Ok(0.0) }
+          }
+          RUST
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo doc --manifest-path ALICE-Risk/Cargo.toml --no-deps 2>&1 | (! grep warning)
