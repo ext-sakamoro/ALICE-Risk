@@ -24,13 +24,10 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Sync
           path: ALICE-Sync
-      - uses: actions/checkout@v4
-        with:
-          repository: ext-sakamoro/ALICE-DB
-          path: ALICE-DB
       - name: Create dependency stubs
         run: |
           for crate_info in \
+            "ALICE-DB:alice-db" \
             "ALICE-Physics:alice-physics" \
             "ALICE-Cache:alice-cache" \
             "ALICE-Auth:alice-auth" \
@@ -69,13 +66,10 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Sync
           path: ALICE-Sync
-      - uses: actions/checkout@v4
-        with:
-          repository: ext-sakamoro/ALICE-DB
-          path: ALICE-DB
       - name: Create dependency stubs
         run: |
           for crate_info in \
+            "ALICE-DB:alice-db" \
             "ALICE-Physics:alice-physics" \
             "ALICE-Cache:alice-cache" \
             "ALICE-Auth:alice-auth" \
@@ -125,13 +119,10 @@ jobs:
         with:
           repository: ext-sakamoro/ALICE-Sync
           path: ALICE-Sync
-      - uses: actions/checkout@v4
-        with:
-          repository: ext-sakamoro/ALICE-DB
-          path: ALICE-DB
       - name: Create dependency stubs
         run: |
           for crate_info in \
+            "ALICE-DB:alice-db" \
             "ALICE-Physics:alice-physics" \
             "ALICE-Cache:alice-cache" \
             "ALICE-Auth:alice-auth" \
