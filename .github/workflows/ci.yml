@@ -70,7 +70,16 @@ jobs:
               pub fn open<P: AsRef<Path>>(_p: P) -> io::Result<Self> { Ok(Self) }
               pub fn put(&self, _ts: i64, _v: f32) -> io::Result<()> { Ok(()) }
               pub fn put_batch(&self, _d: &[(i64, f32)]) -> io::Result<()> { Ok(()) }
+              pub fn get(&self, _ts: i64) -> io::Result<Option<f32>> { Ok(None) }
+              pub fn scan(&self, _s: i64, _e: i64) -> io::Result<Vec<(i64, f32)>> { Ok(vec![]) }
               pub fn aggregate(&self, _s: i64, _e: i64, _a: Aggregation) -> io::Result<f64> { Ok(0.0) }
+              pub fn flush(&self) -> io::Result<()> { Ok(()) }
+              pub fn close(self) -> io::Result<()> { Ok(()) }
+          }
+          impl IntoIterator for AliceDB {
+              type Item = (i64, f32);
+              type IntoIter = std::vec::IntoIter<(i64, f32)>;
+              fn into_iter(self) -> Self::IntoIter { vec![].into_iter() }
           }
           RUST
       - uses: dtolnay/rust-toolchain@stable
@@ -136,7 +145,16 @@ jobs:
               pub fn open<P: AsRef<Path>>(_p: P) -> io::Result<Self> { Ok(Self) }
               pub fn put(&self, _ts: i64, _v: f32) -> io::Result<()> { Ok(()) }
               pub fn put_batch(&self, _d: &[(i64, f32)]) -> io::Result<()> { Ok(()) }
+              pub fn get(&self, _ts: i64) -> io::Result<Option<f32>> { Ok(None) }
+              pub fn scan(&self, _s: i64, _e: i64) -> io::Result<Vec<(i64, f32)>> { Ok(vec![]) }
               pub fn aggregate(&self, _s: i64, _e: i64, _a: Aggregation) -> io::Result<f64> { Ok(0.0) }
+              pub fn flush(&self) -> io::Result<()> { Ok(()) }
+              pub fn close(self) -> io::Result<()> { Ok(()) }
+          }
+          impl IntoIterator for AliceDB {
+              type Item = (i64, f32);
+              type IntoIter = std::vec::IntoIter<(i64, f32)>;
+              fn into_iter(self) -> Self::IntoIter { vec![].into_iter() }
           }
           RUST
       - uses: dtolnay/rust-toolchain@stable
@@ -213,7 +231,16 @@ jobs:
               pub fn open<P: AsRef<Path>>(_p: P) -> io::Result<Self> { Ok(Self) }
               pub fn put(&self, _ts: i64, _v: f32) -> io::Result<()> { Ok(()) }
               pub fn put_batch(&self, _d: &[(i64, f32)]) -> io::Result<()> { Ok(()) }
+              pub fn get(&self, _ts: i64) -> io::Result<Option<f32>> { Ok(None) }
+              pub fn scan(&self, _s: i64, _e: i64) -> io::Result<Vec<(i64, f32)>> { Ok(vec![]) }
               pub fn aggregate(&self, _s: i64, _e: i64, _a: Aggregation) -> io::Result<f64> { Ok(0.0) }
+              pub fn flush(&self) -> io::Result<()> { Ok(()) }
+              pub fn close(self) -> io::Result<()> { Ok(()) }
+          }
+          impl IntoIterator for AliceDB {
+              type Item = (i64, f32);
+              type IntoIter = std::vec::IntoIter<(i64, f32)>;
+              fn into_iter(self) -> Self::IntoIter { vec![].into_iter() }
           }
           RUST
       - uses: dtolnay/rust-toolchain@stable
