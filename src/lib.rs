@@ -71,8 +71,11 @@ pub mod counterparty;
 pub mod greeks;
 pub mod limit;
 pub mod margin;
+pub mod signed_risk_event;
 pub mod stress;
 pub mod var;
+
+pub use signed_risk_event::{RiskEvent, RiskEventKind, SignedRiskEvent, SignedRiskLog};
 
 pub use check::{PreTradeChecker, RiskReject};
 pub use circuit::CircuitBreaker;

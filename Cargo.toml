@@ -1,6 +1,6 @@
 [package]
 name = "alice-risk"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Moroya Sakamoto <sakamoro@alicelaw.net>"]
 description = "Pre-trade risk checks, margin calculation, and circuit breakers"
@@ -19,6 +19,7 @@ std = []
 
 [dependencies]
 alice-ledger = { path = "../ALICE-Ledger" }
+alice-blockchain = { path = "../ALICE-Blockchain" }
 
 [dev-dependencies]
 proptest = "1.4"
