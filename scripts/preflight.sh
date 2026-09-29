@@ -21,21 +21,24 @@ need() { command -v "$1" >/dev/null 2>&1 || { echo "missing tool: $1 ($2)" >&2; 
 has_toolchain() { rustup toolchain list | grep -q "^$1"; }
 
 # Steps CI runs that this file cannot reproduce locally (they can only fail remotely):
+#   - ci.yml:test:Clone ALICE-Blockchain (real sibling) (no cargo / grep)
 #   - ci.yml:test:Create dependency stubs (no cargo / grep)
+#   - ci.yml:clippy:Clone ALICE-Blockchain (real sibling) (no cargo / grep)
 #   - ci.yml:clippy:Create dependency stubs (no cargo / grep)
+#   - ci.yml:doc:Clone ALICE-Blockchain (real sibling) (no cargo / grep)
 #   - ci.yml:doc:Create dependency stubs (no cargo / grep)
 
 need actionlint "brew install actionlint"
 
 step "ci.yml / clippy: run"
 relint
-( export CARGO_TERM_COLOR="always"; cargo clippy --manifest-path ALICE-Risk/Cargo.toml --tests -- -W clippy::all -W clippy::pedantic -D warnings )
+( export CARGO_TERM_COLOR="always"; cargo clippy --manifest-path Cargo.toml --tests -- -W clippy::all -W clippy::pedantic -D warnings )
 
 step "ci.yml / fmt: run"
 ( export CARGO_TERM_COLOR="always"; cargo fmt -- --check )
 
 step "ci.yml / doc: run"
-( export CARGO_TERM_COLOR="always" RUSTDOCFLAGS="-Dwarnings"; cargo doc --manifest-path ALICE-Risk/Cargo.toml --no-deps )
+( export CARGO_TERM_COLOR="always" RUSTDOCFLAGS="-Dwarnings"; cargo doc --manifest-path Cargo.toml --no-deps )
 
 step "ci.yml / actionlint: actionlint"
 actionlint .github/workflows/*.yml
@@ -45,6 +48,6 @@ if [[ $quick -eq 1 ]]; then
 fi
 
 step "ci.yml / test: run"
-( export CARGO_TERM_COLOR="always"; cargo test --manifest-path ALICE-Risk/Cargo.toml )
+( export CARGO_TERM_COLOR="always"; cargo test --manifest-path Cargo.toml )
 
 echo; echo "preflight OK"
