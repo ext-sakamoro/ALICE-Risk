@@ -21,11 +21,8 @@ need() { command -v "$1" >/dev/null 2>&1 || { echo "missing tool: $1 ($2)" >&2; 
 has_toolchain() { rustup toolchain list | grep -q "^$1"; }
 
 # Steps CI runs that this file cannot reproduce locally (they can only fail remotely):
-#   - ci.yml:test:Clone ALICE-Blockchain (real sibling) (no cargo / grep)
 #   - ci.yml:test:Create dependency stubs (no cargo / grep)
-#   - ci.yml:clippy:Clone ALICE-Blockchain (real sibling) (no cargo / grep)
 #   - ci.yml:clippy:Create dependency stubs (no cargo / grep)
-#   - ci.yml:doc:Clone ALICE-Blockchain (real sibling) (no cargo / grep)
 #   - ci.yml:doc:Create dependency stubs (no cargo / grep)
 
 need actionlint "brew install actionlint"

@@ -3,7 +3,7 @@
 //! Every risk violation (limit breach, circuit breaker trip, margin call,
 //! greeks limit trip, VaR excess, counterparty reject) is packaged into a
 //! [`RiskEvent`] and signed with an `Ed25519` key managed by
-//! `alice-blockchain`. Verifiers can then replay the event log and confirm
+//! `alice-sign`. Verifiers can then replay the event log and confirm
 //! that no record has been forged or altered post-hoc.
 //!
 //! Basel III BCBS 239 §22-27 (principles for effective risk data aggregation
@@ -17,7 +17,7 @@
 //! RiskEvent { seq, kind, timestamp, actor, instrument, quantity, detail,
 //!             prev_hash }
 //!   ↓ canonical bytes
-//! FNV-1a hash → alice_blockchain::signature::KeyPair::sign() → Ed25519 signature
+//! FNV-1a hash → alice_sign::KeyPair::sign() → Ed25519 signature
 //! ```
 //!
 //! The hash is chained (`prev_hash → hash`) so a `SignedRiskLog` doubles as
@@ -32,7 +32,7 @@
     clippy::cast_possible_wrap
 )]
 
-use alice_blockchain::signature::{KeyPair, PublicKey, Signature};
+use alice_sign::signature::{KeyPair, PublicKey, Signature};
 
 // ---------------------------------------------------------------------------
 // RiskEventKind
